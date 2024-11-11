@@ -1,10 +1,12 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net"
 	"os"
+	"strings"
 )
 
 var _ = net.Listen
@@ -56,12 +58,44 @@ func readMultipleCommands(conn net.Conn) error {
 			}
 			break
 		}
-		_, err = conn.Write([]byte("+PONG\r\n"))
+		toWrite, err := redisProtocolParser(buf)
+		if err != nil {
+			fmt.Println("Failed to parse command")
+			os.Exit(1)
+		}
+		_, err = conn.Write([]byte(fmt.Sprintf("+%s\r\n", toWrite)))
 		if err != nil {
 			fmt.Println("Failed to write to connection")
 		}
 
 	}
 	return nil
+
+}
+
+func redisProtocolParser(buf []byte) (string, error) {
+	str := string(buf)
+	arrStr := strings.Split(str, "\r\n")
+	for _, v := range arrStr {
+		fmt.Printf("%s\n", v)
+	}
+	//numParamsStr := arrStr[0][1:]
+	//numParams, err := strconv.ParseInt(numParamsStr, 10, 0)
+	//if err != nil {
+	//	fmt.Println("Failed to parse number of parameters")
+	//	return "", err
+	//}
+
+	command := arrStr[2]
+	command = strings.ToUpper(command)
+	switch command {
+	case "PING":
+		return "PONG", nil
+	case "ECHO":
+		value := arrStr[4]
+		return value, nil
+	}
+
+	return "", errors.New("unknown command")
 
 }
