@@ -28,7 +28,6 @@ func main() {
 	str := store.NewStore()
 	for {
 		conn, err := l.Accept()
-		fmt.Println("Accepting connection")
 		if err != nil {
 			fmt.Println("Failed to accept connection")
 			os.Exit(1)
@@ -81,12 +80,6 @@ func redisProtocolParser(buf []byte, store *store.Store) (string, error) {
 	for _, v := range arrStr {
 		fmt.Printf("%s\n", v)
 	}
-	//numParamsStr := arrStr[0][1:]
-	//numParams, err := strconv.ParseInt(numParamsStr, 10, 0)
-	//if err != nil {
-	//	fmt.Println("Failed to parse number of parameters")
-	//	return "", err
-	//}
 
 	command := arrStr[2]
 	command = strings.ToUpper(command)
@@ -105,6 +98,7 @@ func redisProtocolParser(buf []byte, store *store.Store) (string, error) {
 			length := len(value)
 			toWrite = fmt.Sprintf("$%d\r\n%s\r\n", length, value)
 		}
+
 	case "GET":
 		key := arrStr[4]
 		value, found := handleGet(key, store)
@@ -114,6 +108,7 @@ func redisProtocolParser(buf []byte, store *store.Store) (string, error) {
 			length := len(value)
 			toWrite = fmt.Sprintf("$%d\r\n%s\r\n", length, value)
 		}
+		fmt.Println(toWrite)
 	}
 
 	return toWrite, nil
@@ -122,7 +117,7 @@ func redisProtocolParser(buf []byte, store *store.Store) (string, error) {
 
 func handleSet(arrString []string, store *store.Store) string {
 
-	oldValue, _, err := store.Set(arrString)
+	oldValue, err := store.Set(arrString)
 	if err != nil {
 		fmt.Println(err)
 		return ""
@@ -134,6 +129,7 @@ func handleSet(arrString []string, store *store.Store) string {
 func handleGet(key string, store *store.Store) (string, bool) {
 
 	value, ok := store.Get(key)
+	fmt.Printf(key)
 	if !ok {
 		return "", false
 	}
