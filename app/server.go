@@ -1,8 +1,8 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
+	"io"
 	"net"
 	"os"
 )
@@ -21,7 +21,7 @@ func main() {
 		_ = l.Close()
 	}(l)
 
-	//fmt.Println("Listening on port 6379")
+	fmt.Println("Listening on port 6379")
 
 	conn, err := l.Accept()
 	if err != nil {
@@ -29,23 +29,30 @@ func main() {
 		os.Exit(1)
 	}
 	defer conn.Close()
-
 	err = readMultipleCommand(conn)
 	if err != nil {
-		fmt.Println("Failed to read the inputs")
+		fmt.Printf("Failed to read command: %s\n", err)
 		os.Exit(1)
 	}
-
 }
 
 func readMultipleCommand(conn net.Conn) error {
 
-	scanner := bufio.NewScanner(conn)
-	for scanner.Scan() {
-		_, err := conn.Write([]byte("+PONG\r\n"))
+	buf := make([]byte, 1024)
+	for {
+		_, err := conn.Read(buf)
 		if err != nil {
-			return err
+			if err != io.EOF {
+				fmt.Println("Failed to read from connection")
+				return err
+			}
+			break
 		}
+		_, err = conn.Write([]byte("+PONG\r\n"))
+		if err != nil {
+			fmt.Println("Failed to write to connection")
+		}
+
 	}
 	return nil
 
