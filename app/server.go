@@ -23,20 +23,28 @@ func main() {
 
 	fmt.Println("Listening on port 6379")
 
-	conn, err := l.Accept()
-	if err != nil {
-		fmt.Println("Failed to accept connection")
-		os.Exit(1)
-	}
-	defer conn.Close()
-	err = readMultipleCommand(conn)
-	if err != nil {
-		fmt.Printf("Failed to read command: %s\n", err)
-		os.Exit(1)
+	for {
+		conn, err := l.Accept()
+		fmt.Println("Accepting connection")
+		if err != nil {
+			fmt.Println("Failed to accept connection")
+			os.Exit(1)
+		}
+
+		go func() {
+			err := readMultipleCommands(conn)
+			if err != nil {
+				return
+			}
+		}()
+		if err != nil {
+			fmt.Printf("Failed to read command: %s\n", err)
+			os.Exit(1)
+		}
 	}
 }
 
-func readMultipleCommand(conn net.Conn) error {
+func readMultipleCommands(conn net.Conn) error {
 
 	buf := make([]byte, 1024)
 	for {
