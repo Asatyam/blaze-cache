@@ -1,8 +1,8 @@
 package main
 
 import (
-	"errors"
 	"fmt"
+	"github.com/codecrafters-io/redis-starter-go/store"
 	"io"
 	"net"
 	"os"
@@ -25,6 +25,7 @@ func main() {
 
 	fmt.Println("Listening on port 6379")
 
+	str := store.NewStore()
 	for {
 		conn, err := l.Accept()
 		fmt.Println("Accepting connection")
@@ -34,7 +35,7 @@ func main() {
 		}
 
 		go func() {
-			err := readMultipleCommands(conn)
+			err := readMultipleCommands(conn, str)
 			if err != nil {
 				return
 			}
@@ -46,9 +47,10 @@ func main() {
 	}
 }
 
-func readMultipleCommands(conn net.Conn) error {
+func readMultipleCommands(conn net.Conn, str *store.Store) error {
 
 	buf := make([]byte, 1024)
+
 	for {
 		_, err := conn.Read(buf)
 		if err != nil {
@@ -58,12 +60,12 @@ func readMultipleCommands(conn net.Conn) error {
 			}
 			break
 		}
-		toWrite, err := redisProtocolParser(buf)
+		toWrite, err := redisProtocolParser(buf, str)
 		if err != nil {
 			fmt.Println("Failed to parse command")
 			os.Exit(1)
 		}
-		_, err = conn.Write([]byte(fmt.Sprintf("+%s\r\n", toWrite)))
+		_, err = conn.Write([]byte(toWrite))
 		if err != nil {
 			fmt.Println("Failed to write to connection")
 		}
@@ -73,7 +75,7 @@ func readMultipleCommands(conn net.Conn) error {
 
 }
 
-func redisProtocolParser(buf []byte) (string, error) {
+func redisProtocolParser(buf []byte, store *store.Store) (string, error) {
 	str := string(buf)
 	arrStr := strings.Split(str, "\r\n")
 	for _, v := range arrStr {
@@ -88,14 +90,53 @@ func redisProtocolParser(buf []byte) (string, error) {
 
 	command := arrStr[2]
 	command = strings.ToUpper(command)
+	toWrite := ""
 	switch command {
 	case "PING":
-		return "PONG", nil
+		toWrite = "+PONG\r\n"
 	case "ECHO":
 		value := arrStr[4]
-		return value, nil
+		toWrite = fmt.Sprintf("+%s\r\n", value)
+	case "SET":
+		value := handleSet(arrStr[3:], store)
+		if value == "" {
+			toWrite = "+OK\r\n"
+		} else {
+			length := len(value)
+			toWrite = fmt.Sprintf("$%d\r\n%s\r\n", length, value)
+		}
+	case "GET":
+		key := arrStr[4]
+		value, found := handleGet(key, store)
+		if !found {
+			toWrite = fmt.Sprint("$-1\r\n")
+		} else {
+			length := len(value)
+			toWrite = fmt.Sprintf("$%d\r\n%s\r\n", length, value)
+		}
 	}
 
-	return "", errors.New("unknown command")
+	return toWrite, nil
+
+}
+
+func handleSet(arrString []string, store *store.Store) string {
+
+	oldValue, _, err := store.Set(arrString)
+	if err != nil {
+		fmt.Println(err)
+		return ""
+	}
+	return oldValue
+
+}
+
+func handleGet(key string, store *store.Store) (string, bool) {
+
+	value, ok := store.Get(key)
+	if !ok {
+		return "", false
+	}
+	return value, true
 
 }
