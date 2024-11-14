@@ -65,17 +65,25 @@ func (app *application) handleGet(key string) (string, error) {
 		return "", err
 	}
 	contents := app.parseTable(file)
-	keyLen := contents[3]
-	// Length of key is at contents[3]
-	// Key ranges from  [4 , 4 + keyLen)
-	// valLen at [ 4 + keyLen]
-	keyFile := string(contents[4 : 4+keyLen])
-	if keyFile != key {
-		return toWrite, nil
+	for i := 2; i < len(contents); {
+		if contents[i] == 0xff {
+			break
+		}
+		fmt.Printf("i=%d ", i)
+		i += 1
+		keyLen := int(contents[i])
+		currKey := string(contents[i+1 : i+keyLen+1])
+		valueLen := int(contents[i+keyLen+1])
+		value := contents[i+keyLen+2 : i+keyLen+valueLen+2]
+		if currKey == key {
+			toWrite = fmt.Sprintf("$%d\r\n%s\r\n", valueLen, value)
+			return toWrite, nil
+		}
+		i = i + keyLen + 2 + valueLen
+		fmt.Printf("i=%d key=%s\n ", i, key)
+
 	}
-	valLen := contents[3+keyLen+1]
-	value := contents[5+keyLen : 5+keyLen+valLen]
-	toWrite = fmt.Sprintf("$%d\r\n%s\r\n", valLen, value)
+	
 	return toWrite, nil
 }
 
