@@ -85,3 +85,19 @@ func (app *application) handleConfigGet(key string) (string, error) {
 	toWrite = tempStr
 	return toWrite, nil
 }
+
+func (app *application) handleKeys(arrString []string) string {
+
+	toWrite := fmt.Sprint("$-1\r\n")
+
+	file, err := app.parseRDBFile()
+	if err != nil {
+		return toWrite
+	}
+
+	if arrString[1] == "*" {
+		toWrite = fmt.Sprintf("*1\r\n$%d\r\n%s\r\n", len(file), file)
+	}
+	return toWrite
+
+}

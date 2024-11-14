@@ -49,7 +49,9 @@ func main() {
 	}
 
 	fmt.Printf("dir = %s\n dbfilename = %s\n", dir, dbFileName)
-
+	if err != nil {
+		fmt.Printf("Failed to parse RDB file: %s\n", err)
+	}
 	for {
 		conn, err := l.Accept()
 		if err != nil {
@@ -112,6 +114,8 @@ func (app *application) parseRESPHelper(buf []byte) (string, error) {
 		toWrite, _ = app.handleGet(arrStr[4])
 	case "CONFIG":
 		toWrite, _ = app.handleConfig(arrStr[3:])
+	case "KEYS":
+		toWrite = app.handleKeys(arrStr[3:])
 	default:
 		return "", errors.New("unknown command")
 	}
