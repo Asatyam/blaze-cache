@@ -37,26 +37,24 @@ func (app *application) getFilePath() (string, error) {
 	return path, nil
 }
 
-func (app *application) parseRDBFile() (string, error) {
+func (app *application) parseRDBFile() ([]byte, error) {
 
 	path, err := app.getFilePath()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	file, err := os.ReadFile(path)
 	if err != nil {
-		return "", ErrFileNotFound
+		return nil, ErrFileNotFound
 	}
 
 	_, err = app.verifyRDBFile(file)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	key := app.parseTable(file)
-	keyLen := key[3]
-	str := key[4 : 4+keyLen]
+	content := app.parseTable(file)
 
-	return string(str), nil
+	return content, nil
 }
 
 func (app *application) verifyRDBFile(data []byte) (int, error) {

@@ -127,9 +127,31 @@ func (app *application) handleKeys(arrString []string) string {
 	if err != nil {
 		return toWrite
 	}
+	var keys []string
+	for i := 2; i < len(file); {
+		if file[i] == 0xff {
+			break
+		}
+		fmt.Printf("i=%d ", i)
+		i += 1
+		keyLen := int(file[i])
+		key := file[i+1 : i+keyLen+1]
+		keys = append(keys, string(key))
+		fmt.Printf("key=%s\n", key)
+		valueLen := int(file[i+keyLen+1])
+		i = i + keyLen + 2 + valueLen
+		fmt.Printf("i=%d key=%s\n ", i, key)
+
+	}
+	fmt.Println(keys)
+	lenKeys := len(keys)
+	ans := fmt.Sprintf("*%d\r\n", lenKeys)
+	for _, key := range keys {
+		ans += fmt.Sprintf("$%d\r\n%s\r\n", len(key), key)
+	}
 
 	if arrString[1] == "*" {
-		toWrite = fmt.Sprintf("*1\r\n$%d\r\n%s\r\n", len(file), file)
+		toWrite = ans
 	}
 	return toWrite
 
