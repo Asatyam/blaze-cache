@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"strings"
 )
 
@@ -34,16 +35,48 @@ func (app *application) handleSet(arrString []string) string {
 
 }
 
-func (app *application) handleGet(key string) (string, error) {
+func (app *application) inMemoryGet(key string) (string, error) {
+	toWrite := fmt.Sprint("$-1\r\n")
 
 	value, found := app.store.Get(key)
-	toWrite := fmt.Sprint("$-1\r\n")
 	if found {
 		length := len(value)
 		toWrite = fmt.Sprintf("$%d\r\n%s\r\n", length, value)
 	}
 	return toWrite, nil
+}
 
+func (app *application) handleGet(key string) (string, error) {
+
+	toWrite := fmt.Sprint("$-1\r\n")
+
+	path, err := app.getFilePath()
+	if err != nil {
+		toWrite, _ = app.inMemoryGet(key)
+		return toWrite, nil
+	}
+	file, err := os.ReadFile(path)
+	if err != nil {
+		return "", ErrFileNotFound
+	}
+
+	_, err = app.verifyRDBFile(file)
+	if err != nil {
+		return "", err
+	}
+	contents := app.parseTable(file)
+	keyLen := contents[3]
+	// Length of key is at contents[3]
+	// Key ranges from  [4 , 4 + keyLen)
+	// valLen at [ 4 + keyLen]
+	keyFile := string(contents[4 : 4+keyLen])
+	if keyFile != key {
+		return toWrite, nil
+	}
+	valLen := contents[3+keyLen+1]
+	value := contents[5+keyLen : 5+keyLen+valLen]
+	toWrite = fmt.Sprintf("$%d\r\n%s\r\n", valLen, value)
+	return toWrite, nil
 }
 
 func (app *application) handleConfig(arrString []string) (string, error) {

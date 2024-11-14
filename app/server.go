@@ -25,8 +25,8 @@ func main() {
 	var dir string
 	var dbFileName string
 
-	flag.StringVar(&dir, "dir", "./tmp", "the path to the directory where the RDB file is stored")
-	flag.StringVar(&dbFileName, "dbfilename", "redis-starter.db", "the name of the RDB file")
+	flag.StringVar(&dir, "dir", "", "the path to the directory where the RDB file is stored")
+	flag.StringVar(&dbFileName, "dbfilename", "", "the name of the RDB file")
 	flag.Parse()
 
 	l, err := net.Listen("tcp", "0.0.0.0:6379")

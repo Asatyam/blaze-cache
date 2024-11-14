@@ -24,17 +24,25 @@ const (
 	eofCode          = 255
 )
 
-func (app *application) parseRDBFile() (string, error) {
+func (app *application) getFilePath() (string, error) {
 	dir, err := app.config.Get("dir")
-	if err != nil {
+	if err != nil || dir == "" {
 		return "", ErrNoDirectory
 	}
 	dbFileName, err := app.config.Get("dbfilename")
-	if err != nil {
+	if err != nil || dbFileName == "" {
 		return "", ErrNoDBFileName
 	}
 	path := filepath.Join(dir, dbFileName)
+	return path, nil
+}
 
+func (app *application) parseRDBFile() (string, error) {
+
+	path, err := app.getFilePath()
+	if err != nil {
+		return "", err
+	}
 	file, err := os.ReadFile(path)
 	if err != nil {
 		return "", ErrFileNotFound
@@ -45,7 +53,8 @@ func (app *application) parseRDBFile() (string, error) {
 		return "", err
 	}
 	key := app.parseTable(file)
-	str := key[4 : 4+key[3]]
+	keyLen := key[3]
+	str := key[4 : 4+keyLen]
 
 	return string(str), nil
 }
