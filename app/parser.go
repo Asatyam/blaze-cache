@@ -2,23 +2,23 @@ package main
 
 import (
 	"fmt"
-	"github.com/codecrafters-io/redis-starter-go/store"
+	"strings"
 )
 
-func handlePing() (string, error) {
+func (app *application) handlePing() (string, error) {
 
 	return "+PONG\r\n", nil
 }
 
-func handleEcho(str string) (string, error) {
+func (app *application) handleEcho(str string) (string, error) {
 
 	toWrite := fmt.Sprintf("+%s\r\n", str)
 	return toWrite, nil
 }
 
-func handleSet(arrString []string, store *store.Store) string {
+func (app *application) handleSet(arrString []string) string {
 
-	oldValue, err := store.Set(arrString)
+	oldValue, err := app.store.Set(arrString)
 	if err != nil {
 		fmt.Println(err)
 		return ""
@@ -34,9 +34,9 @@ func handleSet(arrString []string, store *store.Store) string {
 
 }
 
-func handleGet(key string, store *store.Store) (string, error) {
+func (app *application) handleGet(key string) (string, error) {
 
-	value, found := store.Get(key)
+	value, found := app.store.Get(key)
 	toWrite := fmt.Sprint("$-1\r\n")
 	if found {
 		length := len(value)
@@ -44,4 +44,44 @@ func handleGet(key string, store *store.Store) (string, error) {
 	}
 	return toWrite, nil
 
+}
+
+func (app *application) handleConfig(arrString []string) (string, error) {
+
+	cfgCommand := arrString[1]
+	cfgCommand = strings.ToUpper(cfgCommand)
+	toWrite := ""
+	switch cfgCommand {
+	case "GET":
+		key := arrString[3]
+		toWrite, _ = app.handleConfigGet(key)
+	}
+	return toWrite, nil
+
+}
+
+func (app *application) handleConfigGet(key string) (string, error) {
+
+	value, err := app.config.Get(key)
+	toWrite := fmt.Sprint("$-1\r\n")
+	if err != nil {
+		return toWrite, err
+	}
+	lenKey := len(key)
+	lenValue := len(value)
+
+	tempArr := []any{lenKey, key, lenValue, value}
+	tempStr := "*2\r\n"
+	for _, v := range tempArr {
+		switch v.(type) {
+		case string:
+			tempStr += fmt.Sprint(v)
+		case int:
+			tempStr += fmt.Sprintf("$%d", v)
+
+		}
+		tempStr += "\r\n"
+	}
+	toWrite = tempStr
+	return toWrite, nil
 }

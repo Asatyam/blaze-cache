@@ -2,8 +2,10 @@ package main
 
 import (
 	"errors"
+	"flag"
 	"fmt"
-	"github.com/codecrafters-io/redis-starter-go/store"
+	"github.com/codecrafters-io/redis-starter-go/internal/config"
+	"github.com/codecrafters-io/redis-starter-go/internal/store"
 	"io"
 	"net"
 	"os"
@@ -13,7 +15,19 @@ import (
 var _ = net.Listen
 var _ = os.Exit
 
+type application struct {
+	store  *store.Store
+	config *config.Config
+}
+
 func main() {
+
+	var dir string
+	var dbFileName string
+
+	flag.StringVar(&dir, "dir", "./tmp", "the path to the directory where the RDB file is stored")
+	flag.StringVar(&dbFileName, "dbfilename", "redis-starter.db", "the name of the RDB file")
+	flag.Parse()
 
 	l, err := net.Listen("tcp", "0.0.0.0:6379")
 	if err != nil {
@@ -27,6 +41,15 @@ func main() {
 	fmt.Println("Listening on port 6379")
 
 	str := store.NewStore()
+	cfg := config.NewConfig(dir, dbFileName)
+
+	app := application{
+		store:  str,
+		config: cfg,
+	}
+
+	fmt.Printf("dir = %s\n dbfilename = %s\n", dir, dbFileName)
+
 	for {
 		conn, err := l.Accept()
 		if err != nil {
@@ -35,7 +58,7 @@ func main() {
 		}
 
 		go func() {
-			err := readMultipleCommands(conn, str)
+			err := app.parseRESP(conn)
 			if err != nil {
 				return
 			}
@@ -43,7 +66,7 @@ func main() {
 	}
 }
 
-func readMultipleCommands(conn net.Conn, str *store.Store) error {
+func (app *application) parseRESP(conn net.Conn) error {
 
 	buf := make([]byte, 1024)
 
@@ -56,7 +79,7 @@ func readMultipleCommands(conn net.Conn, str *store.Store) error {
 			}
 			break
 		}
-		toWrite, err := redisProtocolParser(buf, str)
+		toWrite, err := app.parseRESPHelper(buf)
 		if err != nil {
 			fmt.Println("Failed to parse command")
 			os.Exit(1)
@@ -71,7 +94,7 @@ func readMultipleCommands(conn net.Conn, str *store.Store) error {
 
 }
 
-func redisProtocolParser(buf []byte, store *store.Store) (string, error) {
+func (app *application) parseRESPHelper(buf []byte) (string, error) {
 	str := string(buf)
 	arrStr := strings.Split(str, "\r\n")
 
@@ -80,13 +103,15 @@ func redisProtocolParser(buf []byte, store *store.Store) (string, error) {
 	toWrite := ""
 	switch command {
 	case "PING":
-		toWrite, _ = handlePing()
+		toWrite, _ = app.handlePing()
 	case "ECHO":
-		toWrite, _ = handleEcho(arrStr[4])
+		toWrite, _ = app.handleEcho(arrStr[4])
 	case "SET":
-		toWrite = handleSet(arrStr[3:], store)
+		toWrite = app.handleSet(arrStr[3:])
 	case "GET":
-		toWrite, _ = handleGet(arrStr[4], store)
+		toWrite, _ = app.handleGet(arrStr[4])
+	case "CONFIG":
+		toWrite, _ = app.handleConfig(arrStr[3:])
 	default:
 		return "", errors.New("unknown command")
 	}
