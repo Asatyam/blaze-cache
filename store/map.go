@@ -20,8 +20,9 @@ func NewStore() *Store {
 	}
 }
 
-// Set arr would be of form ["sym", "key", "sym", "value", ...opts  ]
+// Set arr would be of form ["sym", "key", "sym", "value", opts...  ]
 // opts ["sym", "opt", "sym", "optValue",..........]
+
 func (s *Store) Set(arrString []string) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

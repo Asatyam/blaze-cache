@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"github.com/codecrafters-io/redis-starter-go/store"
 	"io"
@@ -39,10 +40,6 @@ func main() {
 				return
 			}
 		}()
-		if err != nil {
-			fmt.Printf("Failed to read command: %s\n", err)
-			os.Exit(1)
-		}
 	}
 }
 
@@ -77,62 +74,23 @@ func readMultipleCommands(conn net.Conn, str *store.Store) error {
 func redisProtocolParser(buf []byte, store *store.Store) (string, error) {
 	str := string(buf)
 	arrStr := strings.Split(str, "\r\n")
-	for _, v := range arrStr {
-		fmt.Printf("%s\n", v)
-	}
 
 	command := arrStr[2]
 	command = strings.ToUpper(command)
 	toWrite := ""
 	switch command {
 	case "PING":
-		toWrite = "+PONG\r\n"
+		toWrite, _ = handlePing()
 	case "ECHO":
-		value := arrStr[4]
-		toWrite = fmt.Sprintf("+%s\r\n", value)
+		toWrite, _ = handleEcho(arrStr[4])
 	case "SET":
-		value := handleSet(arrStr[3:], store)
-		if value == "" {
-			toWrite = "+OK\r\n"
-		} else {
-			length := len(value)
-			toWrite = fmt.Sprintf("$%d\r\n%s\r\n", length, value)
-		}
-
+		toWrite = handleSet(arrStr[3:], store)
 	case "GET":
-		key := arrStr[4]
-		value, found := handleGet(key, store)
-		if !found {
-			toWrite = fmt.Sprint("$-1\r\n")
-		} else {
-			length := len(value)
-			toWrite = fmt.Sprintf("$%d\r\n%s\r\n", length, value)
-		}
-		fmt.Println(toWrite)
+		toWrite, _ = handleGet(arrStr[4], store)
+	default:
+		return "", errors.New("unknown command")
 	}
 
 	return toWrite, nil
-
-}
-
-func handleSet(arrString []string, store *store.Store) string {
-
-	oldValue, err := store.Set(arrString)
-	if err != nil {
-		fmt.Println(err)
-		return ""
-	}
-	return oldValue
-
-}
-
-func handleGet(key string, store *store.Store) (string, bool) {
-
-	value, ok := store.Get(key)
-	fmt.Printf(key)
-	if !ok {
-		return "", false
-	}
-	return value, true
 
 }
